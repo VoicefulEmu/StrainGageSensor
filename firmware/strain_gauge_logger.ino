@@ -12,13 +12,22 @@
  */
 
 #include <HX711.h>
+#include <SD.h>          // SD card library (SPI)
+#include <SPI.h>
 
 // HX711 pins
 const int LOADCELL_DOUT_PIN = 25;
 const int LOADCELL_SCK_PIN = 26;
 
+// SD card pins (adjust if using different pins)
+// Connect CS to pin 5 (or change to your preferred GPIO)
+const int SD_CS_PIN = 5;
+
 // HX711 object
 HX711 scale;
+
+// File handle for SD logging
+File dataFile;
 
 // Configuration
 const long CALIBRATION_FACTOR = 420.0;  // Adjust based on your calibration
@@ -53,6 +62,27 @@ void setup() {
   
   Serial.println("HX711 initialized and zeroed.");
   Serial.println();
+
+  // --- initialize SD card ---
+  Serial.print("Initializing SD card on CS pin ");
+  Serial.println(SD_CS_PIN);
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD initialization failed! Data will only be sent over serial.");
+  } else {
+    Serial.println("SD card initialized.");
+    // create a new file name based on millis to avoid overwriting
+    String filename = "/log_" + String(millis()) + ".csv";
+    dataFile = SD.open(filename, FILE_WRITE);
+    if (dataFile) {
+      // write header
+      dataFile.println("Timestamp_ms,Weight_g,RawValue");
+      dataFile.flush();
+      Serial.print("Logging to SD file: ");
+      Serial.println(filename);
+    } else {
+      Serial.println("Failed to open file on SD card.");
+    }
+  }
   Serial.println("Format: Timestamp(ms),Weight(g),RawValue");
   Serial.println("----------------------------------------");
   
@@ -96,6 +126,16 @@ void loop() {
       Serial.print(",");
       Serial.println(avgRaw);
       
+      // also append to SD card if available
+      if (dataFile) {
+        dataFile.print(currentTime);
+        dataFile.print(",");
+        dataFile.print(avgWeight, 3);
+        dataFile.print(",");
+        dataFile.println(avgRaw);
+        dataFile.flush(); // ensure it's written
+      }
+      
       sampleCount++;
       
     } else {
@@ -110,5 +150,9 @@ void loop() {
     Serial.print("// Status: ");
     Serial.print(sampleCount);
     Serial.println(" samples collected");
+    if (dataFile) {
+      Serial.print("// SD file size: ");
+      Serial.println(dataFile.size());
+    }
   }
 }

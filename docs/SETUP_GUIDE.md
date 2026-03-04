@@ -4,6 +4,8 @@
 - **ESP32 Development Board** (e.g., ESP32 DOIT DevKit v1)
 - **HX711 Load Cell Amplifier Breakout Board**
 - **Strain Gauges** (4x for Wheatstone bridge configuration)
+- **MicroSD card module / socket** (SPI interface)
+- **MicroSD card** (formatted FAT32)
 - **USB Cable** for ESP32 connection to computer
 - **Jumper Wires**
 - **Power Supply** (optional, if not using USB power)
@@ -19,6 +21,21 @@ GPIO 26 (D26)  →   SCK (Clock)
 GND            →   GND
 3.3V           →   VCC
 ```
+
+### ESP32 to SD Card Module
+```
+ESP32 Pin      SD Module Pin
+---------      -------------
+3.3V            → VCC
+GND             → GND
+GPIO 18 (SCK)   → SCK
+GPIO 23 (MOSI)  → MOSI
+GPIO 19 (MISO)  → MISO
+GPIO 5          → CS (chip select)
+```
+
+_You can move the CS pin to another GPIO if desired; just update `SD_CS_PIN` in the firmware._
+
 
 ### Strain Gauges to HX711
 The HX711 is designed for load cells but works great with strain gauges in a Wheatstone bridge:
@@ -37,10 +54,20 @@ HX711 Connections:
 1. Install PlatformIO IDE extension in VS Code
 2. Open the `firmware/` folder as a workspace
 3. The `platformio.ini` file is already configured for ESP32
-4. Install dependencies: Click `PlatformIO` → `Build` → `Install`
-5. Connect ESP32 via USB
-6. Upload: Click `PlatformIO` → `Upload`
-7. Monitor: Click `PlatformIO` → `Monitor Serial`
+   - the HX711 library is specified under `lib_deps`
+   - no additional dependency is required for SD since it's part of the Arduino core
+4. Connect the SD module and HX711 as shown in the wiring diagram
+5. Insert a FAT32‑formatted microSD card into the module
+6. Install dependencies: Click `PlatformIO` → `Build` → `Install`
+7. Connect ESP32 via USB
+8. Upload: Click `PlatformIO` → `Upload`
+9. Monitor: Click `PlatformIO` → `Monitor Serial`
+
+Firmware now writes every sample to two places:
+- serial output (same as before)
+- a CSV file on the SD card (created at boot with a timestamped name)
+
+The default CS pin for the SD card is GPIO 5; change `SD_CS_PIN` in `strain_gauge_logger.ino` if needed.
 
 #### Troubleshooting:
 - If upload fails, try holding the BOOT button during upload start
@@ -101,6 +128,8 @@ ls /dev/tty.* # or /dev/ttyUSB*
 ```bash
 python strain_gauge_logger.py --port COM3 --baud 115200
 ```
+
+> **Tip:** this step is optional if you're already logging to the SD card.  Use the Python logger only when you want a live stream to the computer or want consolidated CSV files on the host.
 
 Options:
 - `--port COM3`: Your serial port (default: COM3)
